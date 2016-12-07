@@ -21,6 +21,8 @@ class plot:
         self.color=color
         self.outfile=self.name+outfile
         self.multiData=False                #flag for multiple Datasets
+        
+        self.listOfFitFkts=[]
     
     def addPath(self, pathstr):
         """sets flag multiData=True, converts self.path to list with path and adds new pathstring to this list"""
@@ -43,26 +45,30 @@ class plot:
     def setOutfile(self, outpath):
         self.outfile=outpath
         
-    
+    def executePlot(self):
+        if self.typ=='graph':
+            
         
 
-def data_2_array(filepaths):
-    """reads given files with messured values (x and y) and creates lists with arrays. filepaths=["path1","path2",...]"""
+def data_2_array(filepaths, index):
+    """reads given files with messured values (x and y) and creates a list with arrays. filepaths=["path1","path2",...]"""
     x_arraylist=[]
     y_arraylist=[]
+    if type(filepaths)==string:
+        filepaths=[filepaths]
     for path in filepaths:
         f_in = open(path)
         x = []#array('f',[])
-        y = []#array('f',[])
+        #y = []#array('f',[])
 
         for row in f_in:
             r=row.split()
-            x.append(float(r[0]))
-            y.append(float(r[1]))
+            x.append(float(r[index]))
+            #y.append(float(r[1]))
         x_arraylist.append(x)
-        y_arraylist.append(y)
+        #y_arraylist.append(y)
         f_in.close()
-    return x_arraylist, y_arraylist
+    return x_arraylist#, y_arraylist
 
 def arrays_2_tgrapherrors(x,y,ex=[],ey=[],names=[]):
     """creates TGraphErrors class for each data set. x are x-coordinates of datapoints, y are y-coordinates of datapoints. ex are x-errors, ey are y-errors (both optional). x,y,ex,ey are lists of arrays. x=[array1,array2,...]. Returns list with TGraphErrors"""
