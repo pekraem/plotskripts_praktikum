@@ -1,10 +1,10 @@
 from ROOT import *
 from array import array
 import numpy as np
-
+import re
 
 class plot:
-    def __init__(self, name="Plot", path, typ="graph", fits=[], color=kBlack, outfile="_plot.pdf"):
+    def __init__(self, name="Plot", path="", typ="graph", fits=[], color=kBlack, outfile="_plot.pdf"):
         """Initialise a new instance of 'plot' class with attributes:
         -name: name and title of the plot
         -path ist a string with path of data, to plot more than one dataset in the same plot, use 'addPath'
@@ -29,7 +29,11 @@ class plot:
         #self.histoList=[]
         self.pltList=[]
         self.parList=[]
-        
+        self.canvasList=[]
+        self.legendList=[]
+        self.fit=[]
+        self.errorList=[]
+        self.peakList=[]
     
     def addPath(self, pathstr):
         """sets flag multiData=True, converts self.path to list with path and adds new pathstring to this list"""
@@ -38,20 +42,24 @@ class plot:
             self.path=[self.path]
         self.path.append(pathstr)
         
-    def addFit(self, ftyp="lin", fxmin=-999, fxmax=999, findex=0, name='', col=kRed):
+    def addFit(self, ftyp="lin", fxmin=-999, fxmax=999, findex=0, name='', col=kRed, par1=0, par2=0, par3=0, par4=0):
         """adds fit to plot, ftyp can be 'lin' for a linear fit or 'gaus' for gaussian fit. fxmin and fxmax sets fitting range.
         findex is only used for multiData plots and points to the dataset"""
-        self.fit.append([ftyp,fxmin,fxmax,findex])
+        self.fits.append([ftyp,fxmin,fxmax,findex,name,col,par1, par2, par3, par4])
         
-    def addXarray(self, index):
+    def addXarray(self, index, opt=''):
         """adds column from self.path with index to X-Values list (self.X)"""
         x_list=data_2_array(self.path, index)
+        for i in range(len(x_list)):
+            exec("x_list[i]=x_list[i]"+opt)
         self.X.append(x_list)
     
-    def addYarray(self, index):
+    def addYarray(self, index, opt=''):
         """adds column from self.path with index to Y-Values list (self.Y)"""
         y_list=data_2_array(self.path, index)
-        self.X.append(y_list)
+        for i in range(len(y_list)):
+            exec("y_list[i]=y_list[i]"+opt)
+        self.Y.append(y_list)
         
     def addEXarray(self, index, opt=''):
         """adds column from self.path with index to eX-Values list (self.eX). Opt may be used to compute the error, e.g. sqrt() for poisson errors"""
@@ -59,13 +67,13 @@ class plot:
         if opt == 'sqrt':
             for i in range(len(ex_list)):
                 ex_list[i]=np.sqrt(ex_list[i])
-        self.X.append(ex_list)
+        self.eX.append(ex_list)
         
     def addEYarray(self, index, opt=''):
         """adds column from self.path with index to eY-Values list (self.ey). Opt may be used to compute the error, e.g. sqrt() for poisson errors"""
         ey_list=data_2_array(self.path, index)
         if opt == 'sqrt':
-            for i in range(len(ex_list)):
+            for i in range(len(ey_list)):
                 ey_list[i]=np.sqrt(ey_list[i])
         self.eY.append(ey_list)
         
@@ -80,64 +88,86 @@ class plot:
         
     def executePlot(self):
         if self.typ=='graph':
-            if !=self.eX[0]:
-                self.eX[0]=len(self.X)[0]*[0]
-            if !=self.eY[0]:
-                self.eY[0]=len(self.Y)[0]*[0]
-            self.pltList.append(arrays_2_tgrapherrors(self.X,self.Y,self.eX,self.eY))
+            #if not self.eX:
+                #self.eX[0]=len(self.X)[0]*[0]
+            #if not self.eY:
+                #self.eY[0]=len(self.Y)[0]*[0]
+            self.pltList.append(arrays_2_tgrapherrors(self.X,self.Y,self.eX,self.eY,self.name))
             
         #implement histo functs
         
         for plt in self.pltList:
             self.canvasList.append(createCanvas(self.name))
-            canvasList[-1].SaveAs(self.outfile.replace(".pdf",".pdf["))
+            self.canvasList[-1].SaveAs(self.outfile.replace(".pdf",".pdf["))
             self.legendList.append(create_legend())
-            self.legendList[-1].AddEntry(plt,self.name)
-            plt.Draw()
+            print self.name,"plt=", plt
+            self.legendList[-1].AddEntry3(plt[-1],str(self.name))
+            plt[-1].Draw("AP")
             #canvasList[-1].SaveAs(self.outfile)
             for fit in self.fits:
                 if fit[0]=='lin':
                     if fit[4]=='':
                         fit[4]="linear_fit_"+self.fits.index(fit)
-                    fkt,grad,error=fit_lin(plt,fit[1],fit[2])
+                    fkt,grad,error=fit_lin(plt[-1],fit[1],fit[2])
                     self.listOfFitFkts.append(fkt)
                     self.parList.append(grad)
                     self.errorList.append(error)
-                    self.legendList[-1].AddEntry(fkt,fit[4]+" ("+round(grad,2)+"+-"+round(error,2)+")x")
+                    self.legendList[-1].AddEntry3(fkt,str(fit[4])+" ("+str(round(grad,2))+"+-"+str(round(error,2))+")x")
                     fkt.Draw("same")
             for fit in self.fits:
                 if fit[0]=='gaus':
                     if fit[4]=='':
                         fit[4]="gaussian_fit_"+self.fits.index(fit)
-                    fkt,mean,error=fit_gaus(plt,fit[1],fit[2])
+                    fkt,mean,error=fit_gaus(plt[-1],fit[1],fit[2],fit[6],fit[7],fit[8])
                     self.listOfFitFkts.append(fkt)
                     self.parList.append(mean)
                     self.errorList.append(error)
-                    self.legendList[-1].AddEntry(fkt,fit[4]+"mean="+round(mean,2)+"+-"+round(error,2))      
+                    self.legendList[-1].AddEntry3(fkt,str(fit[4])+"mean="+str(round(mean,2))+"+-"+str(round(error,2)))      
                     fkt.Draw("same")
+            for fit in self.fits:
+                if fit[0]=='neg_gaus':
+                    if fit[4]=='':
+                        fit[4]="gaussian_fit_"+self.fits.index(fit)
+                    fkt,mean,error=fit_neg_gaus(plt[-1],fit[1],fit[2],fit[6],fit[7],fit[8],fit[9])
+                    self.listOfFitFkts.append(fkt)
+                    self.parList.append(mean)
+                    self.errorList.append(error)
+                    self.legendList[-1].AddEntry3(fkt,str(fit[4])+"mean="+str(round(mean,2))+"+-"+str(round(error,2)))      
+                    fkt.Draw("same")
+            for fit in self.fits:
+                if fit[0]=='sqr':
+                    if fit[4]=='':
+                        fit[4]="quadratic_fit_"+self.fits.index(fit)
+                    fkt,mean,error=fit_sqr(plt[-1],fit[1],fit[2])
+                    self.peakList.append(mean)
+                    self.listOfFitFkts.append(fkt)
+                    self.parList.append(mean)
+                    self.errorList.append(error)
+                    self.legendList[-1].AddEntry3(fkt,str(fit[4])+" peak "+str(round(mean,2)))      
+                    fkt.Draw("same")                     
             self.legendList[-1].Draw("same")
-            canvasList[-1].SaveAs(self.outfile)
-            canvasList[-1].SaveAs(self.outfile.replace(".pdf",".pdf]"))
+            self.canvasList[-1].SaveAs(self.outfile)
+            self.canvasList[-1].SaveAs(self.outfile.replace(".pdf",".pdf]"))
             
 def create_legend(): 
     legend=TLegend()
     legend.SetX1NDC(0.85)
-    legend.SetX2NDC(0.95)
+    legend.SetX2NDC(1.15)
     legend.SetY1NDC(0.92)
     legend.SetY2NDC(0.93)
     legend.SetBorderSize(0);
     legend.SetLineStyle(0);
     legend.SetTextFont(42);
-    legend.SetTextSize(0.05);
+    legend.SetTextSize(0.035);
     legend.SetFillStyle(0);
     return legend.Clone()
 
-def createCanvas(name)
+def createCanvas(name):
     c=TCanvas(name,name,1024,768)
-    c.SetRightMargin(0.05)
-    c.SetTopMargin(0.05)
-    c.SetLeftMargin(0.15)
-    c.SetBottomMargin(0.15)
+    c.SetRightMargin(0.25)
+    c.SetTopMargin(0.07)
+    c.SetLeftMargin(0.07)
+    c.SetBottomMargin(0.1)
     return c.Clone()        
 
 def data_2_array(filepaths, index):
@@ -148,6 +178,7 @@ def data_2_array(filepaths, index):
         filepaths=[filepaths]
     for path in filepaths:
         f_in = open(path)
+        print path
         x = []#array('f',[])
         #y = []#array('f',[])
 
@@ -155,10 +186,10 @@ def data_2_array(filepaths, index):
             r=row.split()
             x.append(float(r[index]))
             #y.append(float(r[1]))
-        x_arraylist.append(x)
+        #x_arraylist.append(x)
         #y_arraylist.append(y)
         f_in.close()
-    return x_arraylist#, y_arraylist
+    return x#_arraylist#, y_arraylist
 
 def arrays_2_tgrapherrors(x,y,ex=[],ey=[],names=[]):
     """creates TGraphErrors class for each data set. x are x-coordinates of datapoints, y are y-coordinates of datapoints. ex are x-errors, ey are y-errors (both optional). x,y,ex,ey are lists of arrays. x=[array1,array2,...]. Returns list with TGraphErrors"""
@@ -178,8 +209,8 @@ def arrays_2_tgrapherrors(x,y,ex=[],ey=[],names=[]):
             tmp.SetName("Dataset_"+str(i))
             tmp.SetTitle("Dataset_"+str(i))
         else:
-            tmp.SetName(names[i])
-            tmp.SetTitle(names[i])
+            tmp.SetName(names)
+            tmp.SetTitle(names)
         for n in range(len(x[i])):
             #X=x[i][n]
             #Y=y[i][n]
@@ -187,6 +218,9 @@ def arrays_2_tgrapherrors(x,y,ex=[],ey=[],names=[]):
             #EY=ey[i][n]
             #tmp.SetPoint(n,X,Y)
             #tmp.SetPointError(n,EX,EY)
+            #print i, n
+            #print x
+            #print y
             tmp.SetPoint(n,x[i][n],y[i][n])
             tmp.SetPointError(n,ex[i][n],ey[i][n])
         graphlist.append(tmp)
@@ -197,14 +231,35 @@ def draw_graphs(graphlist):
     for graph in graphlist:
         graph.Draw("AP SAME")
     raw_input()
-    
 
-def fit_gaus(data, x_min, x_max):
+def neg_gaus(x, par):
+    # negative gaus distribution with offset
+    f = par[0]+par[1]*np.exp(0.5*((x[0]-par[2])/(par[3]))**2) 
+    return f
+
+def fit_gaus(data, x_min, x_max, norm, mean, sigma):
     """fits a gaussian distribution to a given data set. data must be a fitable ROOTObject (TH1F or TGraphErrors etc). x_min and x_max are cuts on the fitrange, returns the fitfunction, mean and error"""
     fkt = TF1("fkt","gaus",x_min,x_max)
+    fkt.SetParameter(0,norm)
+    fkt.SetParameter(1,mean)
+    fkt.SetParameter(2,sigma)
     data.Fit("fkt","R")
     mean = fkt.GetParameter(1)
     error = fkt.GetParError(1)
+    return fkt, mean, error
+
+def fit_neg_gaus(data, x_min, x_max, offset, norm, mean, sigma):
+    """fits a gaussian distribution to a given data set. data must be a fitable ROOTObject (TH1F or TGraphErrors etc). x_min and x_max are cuts on the fitrange, returns the fitfunction, mean and error"""
+    fkt = TF1("fkt",neg_gaus,x_min,x_max,4)
+    fkt.SetParameter(0,offset)
+    fkt.SetParameter(1,norm)
+    fkt.SetParameter(2,mean)
+    if sigma==0:
+        sigma=1
+    fkt.SetParameter(3,sigma)
+    data.Fit("fkt","R")
+    mean = fkt.GetParameter(2)
+    error = fkt.GetParError(2)
     return fkt, mean, error
 
 def fit_lin(data, x_min, x_max):
@@ -212,5 +267,36 @@ def fit_lin(data, x_min, x_max):
     fkt = TF1("fkt","[0]*x+[1]",x_min,x_max)
     grad = fkt.GetParameter(0)
     error = fkt.GetParamError(0)
-    data.fit("fkt","R")
+    data.Fit("fkt","R")
     return fkt, grad, error
+
+def fit_sqr(data, x_min, x_max):
+    """fits a linear slope to a given data set. data must be a fitable ROOTObject (TH1F or TGraphErrors etc). x_min and x_max are cuts on the fitrange, returns the fitfunction, gradient and error"""
+    fkt = TF1("fkt","[0]+[1]*x+[2]*x**2",x_min,x_max)
+    data.Fit("fkt","R")
+    par1 = fkt.GetParameter(1)
+    par2 = fkt.GetParameter(2)
+    er1 = fkt.GetParError(1)
+    er2 = fkt.GetParError(2)
+    print par1, par2
+    peak=-par1/(2*par2)
+    error = np.sqrt((er2/(2*par2))**2+((par1*er1)/(2*par2**2))**2)
+    print 'peak at',peak,'+-',error
+    return fkt, peak, error
+
+def AddEntry3( self, histo, label, option='L'):
+    self.SetY1NDC(self.GetY1NDC()-0.045)
+    width=self.GetX2NDC()-self.GetX1NDC()
+    ts=self.GetTextSize()
+    neglen = 0
+    sscripts = re.findall("_{.+?}|\^{.+?}",label)
+    for s in sscripts:
+	neglen = neglen + 3
+    symbols = re.findall("#[a-zA-Z]+",label)
+    for symbol in symbols:
+	neglen = neglen + len(symbol)-1
+    #label+=' ('+str(round(10*histo.Integral())/10.)+')'
+    newwidth=max((len(label)-neglen)*0.015*0.05/ts+0.1,width)
+    self.SetX1NDC(self.GetX2NDC()-newwidth)
+    self.AddEntry(histo, label, option)
+TLegend.AddEntry3 = AddEntry3
