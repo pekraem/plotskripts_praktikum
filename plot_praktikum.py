@@ -21,8 +21,15 @@ class plot:
         self.color=color
         self.outfile=self.name+outfile
         self.multiData=False                #flag for multiple Datasets
-        
+        self.X=[]
+        self.Y=[]
+        self.eX=[]
+        self.eY=[]
         self.listOfFitFkts=[]
+        #self.histoList=[]
+        self.pltList=[]
+        self.parList=[]
+        
     
     def addPath(self, pathstr):
         """sets flag multiData=True, converts self.path to list with path and adds new pathstring to this list"""
@@ -31,10 +38,36 @@ class plot:
             self.path=[self.path]
         self.path.append(pathstr)
         
-    def addFit(self, ftyp="lin", fxmin=-999, fxmax=999, findex=0):
+    def addFit(self, ftyp="lin", fxmin=-999, fxmax=999, findex=0, name='', col=kRed):
         """adds fit to plot, ftyp can be 'lin' for a linear fit or 'gaus' for gaussian fit. fxmin and fxmax sets fitting range.
         findex is only used for multiData plots and points to the dataset"""
         self.fit.append([ftyp,fxmin,fxmax,findex])
+        
+    def addXarray(self, index):
+        """adds column from self.path with index to X-Values list (self.X)"""
+        x_list=data_2_array(self.path, index)
+        self.X.append(x_list)
+    
+    def addYarray(self, index):
+        """adds column from self.path with index to Y-Values list (self.Y)"""
+        y_list=data_2_array(self.path, index)
+        self.X.append(y_list)
+        
+    def addEXarray(self, index, opt=''):
+        """adds column from self.path with index to eX-Values list (self.eX). Opt may be used to compute the error, e.g. sqrt() for poisson errors"""
+        ex_list=data_2_array(self.path, index)
+        if opt == 'sqrt':
+            for i in range(len(ex_list)):
+                ex_list[i]=np.sqrt(ex_list[i])
+        self.X.append(ex_list)
+        
+    def addEYarray(self, index, opt=''):
+        """adds column from self.path with index to eY-Values list (self.ey). Opt may be used to compute the error, e.g. sqrt() for poisson errors"""
+        ey_list=data_2_array(self.path, index)
+        if opt == 'sqrt':
+            for i in range(len(ex_list)):
+                ey_list[i]=np.sqrt(ey_list[i])
+        self.eY.append(ey_list)
         
     def setName(self,name):
         self.name=name
@@ -47,8 +80,65 @@ class plot:
         
     def executePlot(self):
         if self.typ=='graph':
+            if !=self.eX[0]:
+                self.eX[0]=len(self.X)[0]*[0]
+            if !=self.eY[0]:
+                self.eY[0]=len(self.Y)[0]*[0]
+            self.pltList.append(arrays_2_tgrapherrors(self.X,self.Y,self.eX,self.eY))
             
+        #implement histo functs
         
+        for plt in self.pltList:
+            self.canvasList.append(createCanvas(self.name))
+            canvasList[-1].SaveAs(self.outfile.replace(".pdf",".pdf["))
+            self.legendList.append(create_legend())
+            self.legendList[-1].AddEntry(plt,self.name)
+            plt.Draw()
+            #canvasList[-1].SaveAs(self.outfile)
+            for fit in self.fits:
+                if fit[0]=='lin':
+                    if fit[4]=='':
+                        fit[4]="linear_fit_"+self.fits.index(fit)
+                    fkt,grad,error=fit_lin(plt,fit[1],fit[2])
+                    self.listOfFitFkts.append(fkt)
+                    self.parList.append(grad)
+                    self.errorList.append(error)
+                    self.legendList[-1].AddEntry(fkt,fit[4]+" ("+round(grad,2)+"+-"+round(error,2)+")x")
+                    fkt.Draw("same")
+            for fit in self.fits:
+                if fit[0]=='gaus':
+                    if fit[4]=='':
+                        fit[4]="gaussian_fit_"+self.fits.index(fit)
+                    fkt,mean,error=fit_gaus(plt,fit[1],fit[2])
+                    self.listOfFitFkts.append(fkt)
+                    self.parList.append(mean)
+                    self.errorList.append(error)
+                    self.legendList[-1].AddEntry(fkt,fit[4]+"mean="+round(mean,2)+"+-"+round(error,2))      
+                    fkt.Draw("same")
+            self.legendList[-1].Draw("same")
+            canvasList[-1].SaveAs(self.outfile)
+            canvasList[-1].SaveAs(self.outfile.replace(".pdf",".pdf]"))
+            
+def create_legend(): 
+    legend=TLegend()
+    legend.SetX1NDC(0.85)
+    legend.SetX2NDC(0.95)
+    legend.SetY1NDC(0.92)
+    legend.SetY2NDC(0.93)
+    legend.SetBorderSize(0);
+    legend.SetLineStyle(0);
+    legend.SetTextFont(42);
+    legend.SetTextSize(0.05);
+    legend.SetFillStyle(0);
+    return legend.Clone()
+
+def createCanvas(name)
+    c=TCanvas(name,name,1024,768)
+    c.SetRightMargin(0.05)
+    c.SetTopMargin(0.05)
+    c.SetLeftMargin(0.15)
+    c.SetBottomMargin(0.15)
+    return c.Clone()        
 
 def data_2_array(filepaths, index):
     """reads given files with messured values (x and y) and creates a list with arrays. filepaths=["path1","path2",...]"""
