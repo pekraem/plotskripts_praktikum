@@ -34,7 +34,31 @@ class plot:
         self.fit=[]
         self.errorList=[]
         self.peakList=[]
-    
+        self.xCal=1.
+        self.xOffset=0.
+        self.yCal=1.
+        self.yOffset=0.
+        self.xTitle='no title set'
+        self.yTitle='no title set'
+        
+    def setXCal(self,val):
+        self.xCal=val
+
+    def setYCal(self,val):
+        self.yCal=val
+        
+    def setXOffset(self,val):
+        self.xOffset=val        
+
+    def setYOffset(self,val):
+        self.yOffset=val
+        
+    def setXTitle(self,val):
+        self.xTitle=val
+        
+    def setYTitle(self,val):
+        self.yTitle=val
+        
     def addPath(self, pathstr):
         """sets flag multiData=True, converts self.path to list with path and adds new pathstring to this list"""
         if multidata==False:
@@ -51,14 +75,20 @@ class plot:
         """adds column from self.path with index to X-Values list (self.X)"""
         x_list=data_2_array(self.path, index)
         for i in range(len(x_list)):
-            exec("x_list[i]=x_list[i]"+opt)
+            #exec("x_list[i]=self.xOffset+self.xCal*x_list[i]"+opt)
+            #exec("x_list[i]=self.xCal*x_list[i]"+opt)
+            #exec("x_list[i]=x_list[i]"+opt)
+            exec("x_list[i]=self.xCal*(self.xOffset+x_list[i])"+opt)
         self.X.append(x_list)
     
     def addYarray(self, index, opt=''):
         """adds column from self.path with index to Y-Values list (self.Y)"""
         y_list=data_2_array(self.path, index)
         for i in range(len(y_list)):
-            exec("y_list[i]=y_list[i]"+opt)
+            #exec("y_list[i]=self.yOffset+self.yCal*y_list[i]"+opt)
+            #exec("y_list[i]=self.yCal*y_list[i]"+opt)
+            #exec("y_list[i]=y_list[i]"+opt)
+            exec("y_list[i]=self.yCal*(self.yOffset+y_list[i])"+opt)
         self.Y.append(y_list)
         
     def addEXarray(self, index, opt=''):
@@ -102,13 +132,18 @@ class plot:
             self.legendList.append(create_legend())
             print self.name,"plt=", plt
             self.legendList[-1].AddEntry3(plt[-1],str(self.name))
+            plt[-1].GetXaxis().SetTitle(self.xTitle)
+            plt[-1].GetYaxis().SetTitle(self.yTitle)
             plt[-1].Draw("AP")
             #canvasList[-1].SaveAs(self.outfile)
             for fit in self.fits:
                 if fit[0]=='lin':
                     if fit[4]=='':
                         fit[4]="linear_fit_"+self.fits.index(fit)
-                    fkt,grad,error=fit_lin(plt[-1],fit[1],fit[2])
+                    #fkt,grad,error=fit_lin(plt[-1],self.xOffset+self.xCal*fit[1],self.xOffset+self.xCal*fit[2])
+                    #fkt,grad,error=fit_lin(plt[-1],self.xCal*fit[1],self.xCal*fit[2])
+                    #fkt,grad,error=fit_lin(plt[-1],fit[1],fit[2])
+                    fkt,grad,error=fit_lin(plt[-1],self.xCal*(self.xOffset+fit[1]),self.xCal*(self.xOffset+fit[2]))
                     self.listOfFitFkts.append(fkt)
                     self.parList.append(grad)
                     self.errorList.append(error)
@@ -118,7 +153,10 @@ class plot:
                 if fit[0]=='gaus':
                     if fit[4]=='':
                         fit[4]="gaussian_fit_"+self.fits.index(fit)
-                    fkt,mean,error=fit_gaus(plt[-1],fit[1],fit[2],fit[6],fit[7],fit[8])
+                    #fkt,mean,error=fit_gaus(plt[-1],self.xOffset+self.xCal*fit[1],self.xOffset+self.xCal*fit[2],self.xOffset+self.xCal*fit[6],self.xOffset+self.xCal*fit[7],self.xOffset+self.xCal*fit[8])
+                    #fkt,mean,error=fit_gaus(plt[-1],self.xCal*fit[1],self.xCal*fit[2],self.xCal*fit[6],self.xCal*fit[7],self.xCal*fit[8])
+                    #fkt,mean,error=fit_gaus(plt[-1],fit[1],fit[2],fit[6],fit[7],fit[8])
+                    fkt,mean,error=fit_gaus(plt[-1],self.xCal*(self.xOffset+fit[1]),self.xCal*(self.xOffset+fit[2]),self.xCal*(self.xOffset+fit[6]),self.xCal*(self.xOffset+fit[7]),self.xCal*(self.xOffset+fit[8]))
                     self.listOfFitFkts.append(fkt)
                     self.parList.append(mean)
                     self.errorList.append(error)
@@ -128,7 +166,10 @@ class plot:
                 if fit[0]=='neg_gaus':
                     if fit[4]=='':
                         fit[4]="gaussian_fit_"+self.fits.index(fit)
-                    fkt,mean,error=fit_neg_gaus(plt[-1],fit[1],fit[2],fit[6],fit[7],fit[8],fit[9])
+                    #fkt,mean,error=fit_neg_gaus(plt[-1],self.xOffset+self.xCal*fit[1],self.xOffset+self.xCal*fit[2],self.xOffset+self.xCal*fit[6],self.xOffset+self.xCal*fit[7],self.xOffset+self.xCal*fit[8],self.xOffset+self.xCal*fit[9])
+                    #fkt,mean,error=fit_neg_gaus(plt[-1],self.xCal*fit[1],self.xCal*fit[2],self.xCal*fit[6],self.xOffset+self.xCal*fit[7],self.xCal*fit[8],self.xCal*fit[9])
+                    #fkt,mean,error=fit_neg_gaus(plt[-1],fit[1],fit[2],fit[6],fit[7],fit[8],fit[9])
+                    fkt,mean,error=fit_neg_gaus(plt[-1],self.xCal*(self.xOffset+fit[1]),self.xCal*(self.xOffset+fit[2]),self.xCal*(self.xOffset+fit[6]),self.xCal*(self.xOffset+fit[7]),self.xCal*(self.xOffset+fit[8]),self.xCal*(self.xOffset+fit[9]))
                     self.listOfFitFkts.append(fkt)
                     self.parList.append(mean)
                     self.errorList.append(error)
@@ -138,21 +179,50 @@ class plot:
                 if fit[0]=='sqr':
                     if fit[4]=='':
                         fit[4]="quadratic_fit_"+self.fits.index(fit)
-                    fkt,mean,error=fit_sqr(plt[-1],fit[1],fit[2])
+                    #fkt,mean,error=fit_sqr(plt[-1],self.xOffset+self.xCal*fit[1],self.xOffset+self.xCal*fit[2])
+                    #fkt,mean,error=fit_sqr(plt[-1],self.xCal*fit[1],self.xCal*fit[2])
+                    #fkt,mean,error=fit_sqr(plt[-1],fit[1],fit[2])
+                    fkt,mean,error=fit_sqr(plt[-1],self.xCal*(self.xOffset+fit[1]),self.xCal*(self.xOffset+fit[2]))
                     self.peakList.append(mean)
                     self.listOfFitFkts.append(fkt)
                     self.parList.append(mean)
                     self.errorList.append(error)
                     self.legendList[-1].AddEntry3(fkt,str(fit[4])+" peak "+str(round(mean,2)))      
                     fkt.Draw("same")                     
+            for fit in self.fits:
+                if fit[0]=='breitWig':
+                    if fit[4]=='':
+                        fit[4]="Breit-Wigner_fit_"+self.fits.index(fit)
+                    #fkt,mean,error=fit_sqr(plt[-1],self.xOffset+self.xCal*fit[1],self.xOffset+self.xCal*fit[2])
+                    #fkt,mean,error=fit_sqr(plt[-1],self.xCal*fit[1],self.xCal*fit[2])
+                    #fkt,mean,error=fit_sqr(plt[-1],fit[1],fit[2])
+                    fkt,mean,error=fit_sqr(plt[-1],self.xCal*(self.xOffset+fit[1]),self.xCal*(self.xOffset+fit[2]))
+                    self.peakList.append(mean)
+                    self.listOfFitFkts.append(fkt)
+                    self.parList.append(mean)
+                    self.errorList.append(error)
+                    self.legendList[-1].AddEntry3(fkt,str(fit[4])+" peak "+str(round(mean,2)))      
+                    fkt.Draw("same") 
             self.legendList[-1].Draw("same")
             self.canvasList[-1].SaveAs(self.outfile)
             self.canvasList[-1].SaveAs(self.outfile.replace(".pdf",".pdf]"))
             
+    #not common implemented. change faktor and offset
+    def saveFitResults_Tex(self, textfile, faktor=1, offset=0, anfang='', ende='\\\\\n'):
+        os = ''
+        for peak,error in zip(self.parList,self.errorList):
+            n_peak=(peak-offset)*faktor
+            n_error=error*faktor
+            print "peak at",peak,"+-",error,"\n"
+            os += anfang + str(round(peak,2)) + '&' + str(round(error,2)) + '&' + str(round(n_peak,3)) + '&' + str(round(n_error,3)) + ende
+        tex = open(textfile,'w')
+        tex.write(os)
+        tex.close()
+            
 def create_legend(): 
     legend=TLegend()
     legend.SetX1NDC(0.85)
-    legend.SetX2NDC(1.15)
+    legend.SetX2NDC(1.2)
     legend.SetY1NDC(0.92)
     legend.SetY2NDC(0.93)
     legend.SetBorderSize(0);
@@ -163,8 +233,8 @@ def create_legend():
     return legend.Clone()
 
 def createCanvas(name):
-    c=TCanvas(name,name,1024,768)
-    c.SetRightMargin(0.25)
+    c=TCanvas(name,name,1920,1080)
+    c.SetRightMargin(0.3)
     c.SetTopMargin(0.07)
     c.SetLeftMargin(0.07)
     c.SetBottomMargin(0.1)
@@ -270,6 +340,16 @@ def fit_lin(data, x_min, x_max):
     data.Fit("fkt","R")
     return fkt, grad, error
 
+def fit_BW(data, x_min, x_max):
+    """fits a linear slope to a given data set. data must be a fitable ROOTObject (TH1F or TGraphErrors etc). x_min and x_max are cuts on the fitrange, returns the fitfunction, gradient and error"""
+    fkt = TF1("fkt",BreitWig,x_min,x_max,5)
+    width = fkt.GetParameter(0)          #width
+    w_error = fkt.GetParamError(0)        
+    mean = fkt.GetParameter(1)
+    m_error = fkt.GetParamError(1)
+    data.Fit("fkt","R")
+    return fkt, width, w_error, mean, m_error
+
 def fit_sqr(data, x_min, x_max):
     """fits a linear slope to a given data set. data must be a fitable ROOTObject (TH1F or TGraphErrors etc). x_min and x_max are cuts on the fitrange, returns the fitfunction, gradient and error"""
     fkt = TF1("fkt","[0]+[1]*x+[2]*x**2",x_min,x_max)
@@ -300,3 +380,11 @@ def AddEntry3( self, histo, label, option='L'):
     self.SetX1NDC(self.GetX2NDC()-newwidth)
     self.AddEntry(histo, label, option)
 TLegend.AddEntry3 = AddEntry3
+
+def BreitWig(x, par):
+    f = (par[0]/2.)*par[2]/((x[0] - par[1])*(x[0] - par[1]) + (par[0]/2.)*(par[0]/2.)) + bkg1(x, par)
+    return f
+
+def bkg1(x, par):
+    # Simple background model with constant and linear term.
+    return par[3] + par[4]*x[0]
