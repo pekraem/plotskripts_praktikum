@@ -40,6 +40,11 @@ class plot:
         self.yOffset=0.
         self.xTitle='no title set'
         self.yTitle='no title set'
+        self.sigmaList=[]
+        self.sigmaErrList=[]
+        self.x_min=0
+        self.x_max=0
+        self.margins=[0.3,0.07,0.07,0.1]
         
     def setXCal(self,val):
         self.xCal=val
@@ -66,10 +71,10 @@ class plot:
             self.path=[self.path]
         self.path.append(pathstr)
         
-    def addFit(self, ftyp="lin", fxmin=-999, fxmax=999, findex=0, name='', col=kRed, par1=0, par2=0, par3=0, par4=0):
-        """adds fit to plot, ftyp can be 'lin' for a linear fit or 'gaus' for gaussian fit. fxmin and fxmax sets fitting range.
+    def addFit(self, ftyp="lin", fxmin=-999, fxmax=999, findex=0, name='', col=kRed, par=[], fkt=""):
+        """adds fit to plot, ftyp can be 'lin' for a linear fit, 'gaus' for gaussian fit or "own" for an own fit formula. fxmin and fxmax sets fitting range.
         findex is only used for multiData plots and points to the dataset"""
-        self.fits.append([ftyp,fxmin,fxmax,findex,name,col,par1, par2, par3, par4])
+        self.fits.append([ftyp,fxmin,fxmax,findex,name,col,par,fkt])
         
     def addXarray(self, index, opt=''):
         """adds column from self.path with index to X-Values list (self.X)"""
@@ -124,17 +129,24 @@ class plot:
                 #self.eY[0]=len(self.Y)[0]*[0]
             self.pltList.append(arrays_2_tgrapherrors(self.X,self.Y,self.eX,self.eY,self.name))
             
+        if self.typ=='histo_bin':
+            gStyle.SetOptStat(0)
+            self.pltList.append(arrays_2_histBin(self.Y,self.xOffset,self.xCal,self.X,self.name))
+            
         #implement histo functs
         
         for plt in self.pltList:
-            self.canvasList.append(createCanvas(self.name))
+            self.canvasList.append(createCanvas(self.name,self.margins))
             self.canvasList[-1].SaveAs(self.outfile.replace(".pdf",".pdf["))
-            self.legendList.append(create_legend())
+            self.legendList.append(create_legend(self.margins))
             print self.name,"plt=", plt
             self.legendList[-1].AddEntry3(plt[-1],str(self.name))
             plt[-1].GetXaxis().SetTitle(self.xTitle)
             plt[-1].GetYaxis().SetTitle(self.yTitle)
-            plt[-1].Draw("AP")
+            if type(plt[-1])==TGraphErrors:
+                plt[-1].Draw("AP")
+            if type(plt[-1])==TH1F:
+                plt[-1].Draw("E")
             #canvasList[-1].SaveAs(self.outfile)
             for fit in self.fits:
                 if fit[0]=='lin':
@@ -147,7 +159,7 @@ class plot:
                     self.listOfFitFkts.append(fkt)
                     self.parList.append(grad)
                     self.errorList.append(error)
-                    self.legendList[-1].AddEntry3(fkt,str(fit[4])+" ("+str(round(grad,2))+"+-"+str(round(error,2))+")x")
+                    self.legendList[-1].AddEntry3(fkt,str(fit[4])+" ("+str(round(grad,2))+"+-%s)"%float("%.2g"%error))#"+str(round(error,2))+")x")
                     fkt.Draw("same")
             for fit in self.fits:
                 if fit[0]=='gaus':
@@ -160,7 +172,7 @@ class plot:
                     self.listOfFitFkts.append(fkt)
                     self.parList.append(mean)
                     self.errorList.append(error)
-                    self.legendList[-1].AddEntry3(fkt,str(fit[4])+"mean="+str(round(mean,2))+"+-"+str(round(error,2)))      
+                    self.legendList[-1].AddEntry3(fkt,str(fit[4])+"mean="+str(round(mean,2))+"+-%s"%float("%.2g"%error))#+str(round(error,2)))      
                     fkt.Draw("same")
             for fit in self.fits:
                 if fit[0]=='neg_gaus':
@@ -173,6 +185,8 @@ class plot:
                     self.listOfFitFkts.append(fkt)
                     self.parList.append(mean)
                     self.errorList.append(error)
+                    self.sigmaList.append(fkt.GetParameter(3))
+                    self.sigmaErrList.append(fkt.GetParError(3))
                     self.legendList[-1].AddEntry3(fkt,str(fit[4])+"mean="+str(round(mean,2))+"+-"+str(round(error,2)))      
                     fkt.Draw("same")
             for fit in self.fits:
@@ -219,11 +233,11 @@ class plot:
         tex.write(os)
         tex.close()
             
-def create_legend(): 
+def create_legend(margins=[0.1,0.1,0.1,0.1]): 
     legend=TLegend()
-    legend.SetX1NDC(0.85)
-    legend.SetX2NDC(1.2)
-    legend.SetY1NDC(0.92)
+    legend.SetX1NDC(1-margins[0])
+    legend.SetX2NDC(1.)
+    legend.SetY1NDC(1)
     legend.SetY2NDC(0.93)
     legend.SetBorderSize(0);
     legend.SetLineStyle(0);
@@ -232,12 +246,12 @@ def create_legend():
     legend.SetFillStyle(0);
     return legend.Clone()
 
-def createCanvas(name):
+def createCanvas(name, margins=[0.1,0.1,0.1,0.1]):
     c=TCanvas(name,name,1920,1080)
-    c.SetRightMargin(0.3)
-    c.SetTopMargin(0.07)
-    c.SetLeftMargin(0.07)
-    c.SetBottomMargin(0.1)
+    c.SetRightMargin(margins[0])
+    c.SetTopMargin(margins[1])
+    c.SetLeftMargin(margins[2])
+    c.SetBottomMargin(margins[3])
     return c.Clone()        
 
 def data_2_array(filepaths, index):
@@ -296,6 +310,35 @@ def arrays_2_tgrapherrors(x,y,ex=[],ey=[],names=[]):
         graphlist.append(tmp)
     return graphlist
 
+def arrays_2_histBin(y,xOffset,xCal,x=[],names=[]):
+    """creates TH1F class for each data set. x are indices of bins, y are Binentries. x,y,ex,ey are lists of arrays. x=[array1,array2,...]. Returns list with TH1Fs"""
+    histoList=[]
+    for i in range(len(y)):
+        if x==[]:
+            nbins = len(y[i])
+            bmin = (1+xOffset)*xCal
+            bmax = (len(y[i])+xOffset)*xCal
+        else:
+            nbins = len(x[i])
+            bmin = min(x[i])
+            bmax = max(x[i])
+        h= TH1F("h","h",nbins,bmin,bmax)
+        tmp=h.Clone()
+        for k in range(len(y[i])):
+            if x==[]:
+                tmp.SetBinContent(k,y[i][k])
+            else:
+                tmp.SetBinContent(x[i][k],y[i][k])
+        if names==[]:
+            tmp.SetName("Dataset_"+str(i))
+            tmp.SetTitle("Dataset_"+str(i))
+        else:
+            tmp.SetName(names)
+            tmp.SetTitle(names)
+        histoList.append(tmp)
+    return histoList
+        
+
 def draw_graphs(graphlist):
     c = TCanvas('c','c',800,600)
     for graph in graphlist:
@@ -332,12 +375,15 @@ def fit_neg_gaus(data, x_min, x_max, offset, norm, mean, sigma):
     error = fkt.GetParError(2)
     return fkt, mean, error
 
-def fit_lin(data, x_min, x_max):
+def fit_lin(data, x_min, x_max, par=[]):
     """fits a linear slope to a given data set. data must be a fitable ROOTObject (TH1F or TGraphErrors etc). x_min and x_max are cuts on the fitrange, returns the fitfunction, gradient and error"""
     fkt = TF1("fkt","[0]*x+[1]",x_min,x_max)
-    grad = fkt.GetParameter(0)
-    error = fkt.GetParamError(0)
+    if (len(par)!=0):
+        fkt.SetParameter(0,par[0])
+        fkt.SetParameter(1,par[1])
     data.Fit("fkt","R")
+    grad = fkt.GetParameter(0)
+    error = fkt.GetParError(0)
     return fkt, grad, error
 
 def fit_BW(data, x_min, x_max):
@@ -365,9 +411,13 @@ def fit_sqr(data, x_min, x_max):
     return fkt, peak, error
 
 def AddEntry3( self, histo, label, option='L'):
-    self.SetY1NDC(self.GetY1NDC()-0.045)
+    self.SetY1NDC(self.GetY1NDC()-0.07)
     width=self.GetX2NDC()-self.GetX1NDC()
+    print "width = ",width
+    print "X1NDC = ",self.GetX1NDC()
+    print "X2NDC = ",self.GetX2NDC()
     ts=self.GetTextSize()
+    print "textsize=",ts
     neglen = 0
     sscripts = re.findall("_{.+?}|\^{.+?}",label)
     for s in sscripts:
@@ -376,8 +426,22 @@ def AddEntry3( self, histo, label, option='L'):
     for symbol in symbols:
 	neglen = neglen + len(symbol)-1
     #label+=' ('+str(round(10*histo.Integral())/10.)+')'
-    newwidth=max((len(label)-neglen)*0.015*0.05/ts+0.1,width)
-    self.SetX1NDC(self.GetX2NDC()-newwidth)
+    newwidth=max((len(label)-neglen)*0.005*0.05/ts+0.1,width) 
+    if (newwidth>width):
+        print "yeeees"
+        ts=((len(label)-neglen)*0.005*0.05)/(newwidth-0.1)*width/newwidth
+        self.SetTextSize(ts)
+    nnewwidth=max((len(label)-neglen)*0.005*0.05/ts+0.1,width)  
+    print "X1NDC = ",self.GetX1NDC()
+    print "X2NDC = ",self.GetX2NDC()
+    print "newwidth = ",newwidth
+    print "newnewwidth = ",nnewwidth
+    print "textsize=",ts
+    #newwidth=max((len(label))*0.015*0.05/ts+0.1,width)
+    #self.SetX1NDC(self.GetX2NDC()-nnewwidth)
+    #self.SetX1NDC((histo.GetXaxis().GetXmax()-histo.GetXaxis().GetXmin())*1.05)
+    #self.SetX2NDC(self.GetX1NDC()+width)
+    #print (histo.GetXaxis().GetXmax()-histo.GetXaxis().GetXmin())*1.05
     self.AddEntry(histo, label, option)
 TLegend.AddEntry3 = AddEntry3
 
