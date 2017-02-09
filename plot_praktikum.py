@@ -45,7 +45,11 @@ class plot:
         self.x_min=0
         self.x_max=0
         self.margins=[0.3,0.07,0.07,0.1]
-        
+        self.interceptList=[]
+    
+    def setMargins(self,margins):
+        self.margins=margins
+    
     def setXCal(self,val):
         self.xCal=val
 
@@ -127,7 +131,7 @@ class plot:
                 #self.eX[0]=len(self.X)[0]*[0]
             #if not self.eY:
                 #self.eY[0]=len(self.Y)[0]*[0]
-            self.pltList.append(arrays_2_tgrapherrors(self.X,self.Y,self.eX,self.eY,self.name))
+            self.pltList.append(arrays_2_tgrapherrors(self.X,self.Y,self.eX,self.eY,self.name,self.xOffset,self.xCal))
             
         if self.typ=='histo_bin':
             gStyle.SetOptStat(0)
@@ -144,7 +148,13 @@ class plot:
             plt[-1].GetXaxis().SetTitle(self.xTitle)
             plt[-1].GetYaxis().SetTitle(self.yTitle)
             if type(plt[-1])==TGraphErrors:
+                plt[-1].SetMarkerStyle(8)
+                plt[-1].SetMarkerSize(0.9)
+                plt[-1].SetMarkerColor(self.color)
+                plt[-1].SetLineColor(self.color)
+                #self.legendList[-1].AddEntry3(plt[-1],str(self.name))
                 plt[-1].Draw("AP")
+                #self.legendList[-1].AddEntry3(plt[-1],str(self.name))
             if type(plt[-1])==TH1F:
                 plt[-1].Draw("E")
             #canvasList[-1].SaveAs(self.outfile)
@@ -158,8 +168,10 @@ class plot:
                     fkt,grad,error=fit_lin(plt[-1],self.xCal*(self.xOffset+fit[1]),self.xCal*(self.xOffset+fit[2]))
                     self.listOfFitFkts.append(fkt)
                     self.parList.append(grad)
+                    self.interceptList.append([fkt.GetParameter(1),fkt.GetParError(1)])
                     self.errorList.append(error)
                     self.legendList[-1].AddEntry3(fkt,str(fit[4])+" ("+str(round(grad,2))+"+-%s)"%float("%.2g"%error))#"+str(round(error,2))+")x")
+                    fkt.SetLineColor(fit[5])
                     fkt.Draw("same")
             for fit in self.fits:
                 if fit[0]=='gaus':
@@ -222,13 +234,13 @@ class plot:
             self.canvasList[-1].SaveAs(self.outfile.replace(".pdf",".pdf]"))
             
     #not common implemented. change faktor and offset
-    def saveFitResults_Tex(self, textfile, faktor=1, offset=0, anfang='', ende='\\\\\n'):
+    def saveFitResults_Tex(self, textfile, peak=[], error=[], n_peak=[], n_error=[], faktor=1, offset=0, anfang='', ende='\\\\\n'):
         os = ''
-        for peak,error in zip(self.parList,self.errorList):
-            n_peak=(peak-offset)*faktor
-            n_error=error*faktor
-            print "peak at",peak,"+-",error,"\n"
-            os += anfang + str(round(peak,2)) + '&' + str(round(error,2)) + '&' + str(round(n_peak,3)) + '&' + str(round(n_error,3)) + ende
+        for i in range(len(peak)):
+            #n_peak=(peak-offset)*faktor
+            #n_error=error*faktor
+            print "peak at",peak[i],"+-",error[i],"newpeak",n_peak[i],"\n"
+            os += anfang + "%s & "%float("%.5g"%peak[i]) + "%s & "%float("%.2g"%error[i]) + "%s & "%float("%.5g"%n_peak[i]) + "%s "%float("%.2g"%n_error[i]) + ende
         tex = open(textfile,'w')
         tex.write(os)
         tex.close()
@@ -267,7 +279,11 @@ def data_2_array(filepaths, index):
         #y = []#array('f',[])
 
         for row in f_in:
+            #print type(row)
+            row=row.replace(',','.')	
+            #print row
             r=row.split()
+            #r.replace(",",".")
             x.append(float(r[index]))
             #y.append(float(r[1]))
         #x_arraylist.append(x)
@@ -275,7 +291,7 @@ def data_2_array(filepaths, index):
         f_in.close()
     return x#_arraylist#, y_arraylist
 
-def arrays_2_tgrapherrors(x,y,ex=[],ey=[],names=[]):
+def arrays_2_tgrapherrors(x,y,ex=[],ey=[],names=[],xOffset=0,xCal=1):
     """creates TGraphErrors class for each data set. x are x-coordinates of datapoints, y are y-coordinates of datapoints. ex are x-errors, ey are y-errors (both optional). x,y,ex,ey are lists of arrays. x=[array1,array2,...]. Returns list with TGraphErrors"""
     g = TGraphErrors()
     g.SetMarkerStyle(8)
@@ -285,10 +301,10 @@ def arrays_2_tgrapherrors(x,y,ex=[],ey=[],names=[]):
         tmp = g.Clone()
         if ex==[]:
             ex = [[] for i in range(len(x))]
-            ex[i]=[0.1]*len(x[i])
+            ex[i]=[0.]*len(x[i])
         if ey==[]:
             ey=[[] for i in range(len(x))]
-            ey[i]=[0.1]*len(x[i])
+            ey[i]=[0.]*len(x[i])
         if names==[]:
             tmp.SetName("Dataset_"+str(i))
             tmp.SetTitle("Dataset_"+str(i))
@@ -305,8 +321,9 @@ def arrays_2_tgrapherrors(x,y,ex=[],ey=[],names=[]):
             #print i, n
             #print x
             #print y
-            tmp.SetPoint(n,x[i][n],y[i][n])
-            tmp.SetPointError(n,ex[i][n],ey[i][n])
+            tmp.SetPoint(n,(x[i][n]*xCal+xOffset),y[i][n])
+            tmp.SetPointError(n,(ex[i][n]*xCal),ey[i][n])
+            #print (ex[i][n]*xCal),ey[i][n]
         graphlist.append(tmp)
     return graphlist
 
@@ -347,8 +364,9 @@ def draw_graphs(graphlist):
 
 def neg_gaus(x, par):
     # negative gaus distribution with offset
-    f = par[0]+par[1]*np.exp(0.5*((x[0]-par[2])/(par[3]))**2) 
-    return f
+    if par[3]!=0.0:
+        f = par[0]+par[1]*np.exp(-(0.5*((x[0]-par[2])/(par[3]))**2)) 
+        return f
 
 def fit_gaus(data, x_min, x_max, norm, mean, sigma):
     """fits a gaussian distribution to a given data set. data must be a fitable ROOTObject (TH1F or TGraphErrors etc). x_min and x_max are cuts on the fitrange, returns the fitfunction, mean and error"""
@@ -404,7 +422,7 @@ def fit_sqr(data, x_min, x_max):
     par2 = fkt.GetParameter(2)
     er1 = fkt.GetParError(1)
     er2 = fkt.GetParError(2)
-    print par1, par2
+    #print par1, par2
     peak=-par1/(2*par2)
     error = np.sqrt((er2/(2*par2))**2+((par1*er1)/(2*par2**2))**2)
     print 'peak at',peak,'+-',error
